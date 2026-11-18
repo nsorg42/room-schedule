@@ -1,22 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { ROOMS } from '../../shared/config.ts';
-import { NOW, todayFixture } from '../fixtures.ts';
+import { normalizeSchedule } from '../../worker/schedule.ts';
+import { allocation, DATE, NOW, todayFixture } from '../fixtures.ts';
 
 test.beforeEach(async ({ page }) => {
   await page.clock.install({ time: NOW });
 });
 
-test('shows eight ordered rows with one perfectly aligned axis and now indicator', async ({ page }, info) => {
+test('shows all configured rows in order with one perfectly aligned axis and now indicator', async ({ page }, info) => {
   await page.route('**/api/today', route => route.fulfill({ json: todayFixture() }));
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   await expect(page.locator('#today-date')).toHaveText('Wednesday, 18 November 2026');
   await expect(page.getByRole('heading', { name: 'Study Rooms', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Refresh schedules' })).toHaveCount(0);
   await expect(page.locator('.page-footer')).toHaveCount(0);
   expect((await page.locator('.segment').allTextContents()).every(text => text === '')).toBe(true);
   const names = await page.locator('.room-name').allTextContents();
-  expect(names).toEqual(ROOMS.map(room => room.name));
+  expect(names).toEqual(ROOMS.map(room => room.label));
   const geometry = await page.evaluate(() => ({
     tracks: Array.from(document.querySelectorAll('.row-track, .time-axis')).map(el => {
       const rect = el.getBoundingClientRect();
@@ -40,7 +41,7 @@ test('fits the whole day without horizontal scrolling and keeps the desktop head
   await page.setViewportSize({ width: page.viewportSize()!.width, height: 600 });
   await page.route('**/api/today', route => route.fulfill({ json: todayFixture() }));
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   const label = page.locator('.room-label').first();
   const labelBefore = await label.boundingBox();
   const headerBefore = await page.locator('.corner').boundingBox();
@@ -105,7 +106,7 @@ test('moves now locally once a minute without requesting schedules', async ({ pa
   let requests = 0;
   await page.route('**/api/today', route => { requests++; return route.fulfill({ json: todayFixture() }); });
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   const before = await page.locator('.now-line').first().boundingBox();
   await page.clock.fastForward(60_000);
   await expect(page.locator('.now-label')).toHaveText('10:31');
@@ -118,7 +119,7 @@ test('hides now outside the study window', async ({ page }) => {
   await page.clock.setSystemTime(new Date('2026-11-18T06:30:00Z'));
   await page.route('**/api/today', route => route.fulfill({ json: todayFixture() }));
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   await expect(page.locator('.now-line:visible')).toHaveCount(0);
   await page.clock.setSystemTime(new Date('2026-11-18T19:00:00Z'));
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -129,12 +130,12 @@ test('renders a failed page reload as gray, never as previously green availabili
   let failed = false;
   await page.route('**/api/today', route => failed ? route.fulfill({ status: 204 }) : route.fulfill({ json: todayFixture() }));
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   failed = true;
   await page.reload();
-  await expect(page.locator('tr[data-state="unavailable"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="unavailable"]')).toHaveCount(ROOMS.length);
   await expect(page.locator('#room-rows .unbooked')).toHaveCount(0);
-  await expect(page.getByText('Schedule unavailable', { exact: true })).toHaveCount(8);
+  await expect(page.getByText('Schedule unavailable', { exact: true })).toHaveCount(ROOMS.length);
   await expect(page.locator('.all-day')).toHaveCount(0);
 });
 
@@ -143,7 +144,7 @@ test('preserves individual failures and the upstream timestamp on a cache hit', 
   data.rooms[2] = { ...ROOMS[2], status: 'unavailable', fetchedAt: null, reason: 'upstream' };
   await page.route('**/api/today', route => route.fulfill({ json: data }));
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(7);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length - 1);
   await expect(page.locator('tr[data-state="unavailable"]')).toHaveCount(1);
   const timestamp = await page.locator('#updated').textContent();
   await page.clock.fastForward(120_000);
@@ -161,13 +162,43 @@ test('marks only validated rooms that are unbooked for the whole visible day', a
   await expect(page.locator('tr[data-state="unavailable"] .all-day')).toHaveCount(0);
 });
 
+test('marks 09:00–17:00 candidates, respects boundaries, and keeps All day preferred', async ({ page }, info) => {
+  const data = todayFixture();
+  const schedules = [
+    [0, [allocation('08:00', '09:00', null), allocation('17:00', '20:00')]],
+    [2, [allocation('08:00', '09:01')]],
+    [3, [allocation('16:59', '18:00')]],
+    [4, [allocation('12:00', '12:30', null)]],
+    [5, [allocation('17:00', '18:00')]],
+  ] as const;
+  for (const [index, bookings] of schedules) {
+    data.rooms[index] = {
+      ...ROOMS[index], status: 'ok', fetchedAt: NOW.toISOString(),
+      ...normalizeSchedule(bookings, DATE),
+    };
+  }
+  data.rooms[6] = { ...ROOMS[6], status: 'unavailable', fetchedAt: null, reason: 'upstream' };
+  await page.route('**/api/today', route => route.fulfill({ json: data }));
+  await page.goto('/');
+  await expect(page.locator('.candidate')).toHaveCount(2);
+  const rows = page.locator('#room-rows tr');
+  for (const index of [0, 5]) await expect(rows.nth(index).locator('.candidate')).toHaveText('Candidate');
+  for (const index of [1, 2, 3, 4, 6, 7]) await expect(rows.nth(index).locator('.candidate')).toHaveCount(0);
+  await expect(rows.nth(1).locator('.all-day')).toHaveText('All day');
+  await expect(rows.nth(0).locator('.candidate')).toHaveAttribute('title', 'No scheduled bookings from 09:00–17:00');
+  const badge = await rows.nth(0).locator('.candidate').boundingBox();
+  const label = await rows.nth(0).locator('.room-label').boundingBox();
+  expect(badge!.x + badge!.width).toBeLessThan(label!.x + label!.width);
+  await page.screenshot({ path: `artifacts/${info.project.name}-candidates.png`, fullPage: true });
+});
+
 test('follows the device color scheme, including popovers and unavailable rows', async ({ page }, info) => {
   const data = todayFixture();
   data.rooms[2] = { ...ROOMS[2], status: 'unavailable', fetchedAt: null, reason: 'upstream' };
   await page.route('**/api/today', route => route.fulfill({ json: data }));
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(7);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length - 1);
   const colors = () => page.evaluate(() => ['html', '.board-scroll', '.segment.unbooked', '.segment.booked', '.neutral', '.booking-popover']
     .map(selector => getComputedStyle(document.querySelector(selector)!).backgroundColor));
   const light = await colors();
@@ -189,10 +220,10 @@ test('fetches the new Zurich day across midnight', async ({ page }) => {
     return route.fulfill({ json: todayFixture(requests === 1 ? '2026-11-18' : '2026-11-19') });
   });
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   await page.clock.fastForward(60_000);
   await expect(page.locator('#today-date')).toHaveText('Thursday, 19 November 2026');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   expect(requests).toBe(2);
 });
 
@@ -203,10 +234,10 @@ test('fetches the new date when the browser resumes after an overnight suspensio
     return route.fulfill({ json: todayFixture(requests === 1 ? '2026-11-18' : '2026-11-19') });
   });
   await page.goto('/');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   await page.clock.setSystemTime(new Date('2026-11-19T08:00:00Z'));
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(page.locator('#today-date')).toHaveText('Thursday, 19 November 2026');
-  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(8);
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   expect(requests).toBe(2);
 });

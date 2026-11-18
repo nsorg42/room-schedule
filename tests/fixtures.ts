@@ -24,6 +24,9 @@ export function todayFixture(date = DATE): TodayResponse {
     [allocation('10:00', '11:00', 'Seminar'), allocation('16:00', '18:00', 'Lecture')],
     [allocation('08:00', '10:00', null), allocation('12:00', '14:00', 'Lecture')],
     [allocation('12:00', '14:00', 'First booking'), allocation('14:00', '17:00', 'Second booking')],
+    [allocation('10:00', '12:00', 'Lecture')],
+    [allocation('13:00', '15:00', 'Seminar')],
+    [allocation('11:00', '13:00', 'Tutorial')],
   ];
   return {
     date, timeZone: TIME_ZONE,

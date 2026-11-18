@@ -1,4 +1,4 @@
-import { ROOMS } from '../shared/config.ts';
+import { API_TIMEOUT_MS, ROOMS } from '../shared/config.ts';
 import { zurichTime } from '../shared/time.ts';
 import { createEthClient } from '../worker/eth.ts';
 import type { TodayResponse } from '../shared/types.ts';
@@ -6,16 +6,16 @@ import type { TodayResponse } from '../shared/types.ts';
 const origin = process.argv[2];
 const date = zurichTime().date;
 if (origin) {
-  const response = await fetch(new URL('/api/today', origin), { signal: AbortSignal.timeout(35_000) });
+  const response = await fetch(new URL('/api/today', origin), { signal: AbortSignal.timeout(API_TIMEOUT_MS) });
   if (response.status !== 200 || !response.headers.get('Content-Type')?.includes('application/json')) {
     throw new Error(`Backend returned ${response.status} without usable JSON`);
   }
   const data = await response.json() as TodayResponse;
   if (data.date !== date || data.rooms.length !== ROOMS.length ||
       data.rooms.some((room, i) => room.name !== ROOMS[i].name || room.status !== 'ok')) {
-    throw new Error('Not all eight schedules are available for today; inspect /api/today');
+    throw new Error('Not all configured schedules are available for today; inspect /api/today');
   }
-  console.log(`Backend smoke test passed: ${date}, all eight rooms, ${origin}`);
+  console.log(`Backend smoke test passed: ${date}, all ${ROOMS.length} rooms, ${origin}`);
   for (const room of data.rooms) console.log(`${room.name}: ${room.status}, fetched ${room.fetchedAt}`);
 } else {
   const eth = createEthClient();

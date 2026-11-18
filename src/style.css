@@ -65,7 +65,8 @@ thead th { position: sticky; top: 0; z-index: 5; background: var(--header); bord
 .room-name { display: block; white-space: nowrap; }
 .room-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 .room-alias { font-size: 11px; font-weight: 400; color: var(--muted); white-space: nowrap; }
-.all-day { padding: 1px 5px; border: 1px solid var(--badge-border); border-radius: 4px; background: var(--badge-bg); color: var(--badge-text); font-size: 10px; line-height: 1.3; white-space: nowrap; }
+.availability-badge { padding: 1px 5px; border: 1px solid var(--badge-border); border-radius: 4px; background: var(--badge-bg); color: var(--badge-text); font-size: 10px; line-height: 1.3; white-space: nowrap; }
+.candidate { background: var(--header); color: var(--muted); border-color: var(--border); }
 td { border-bottom: 1px solid var(--line); }
 tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
 .row-track { position: relative; height: 61px; margin: 0 18px; background-image: repeating-linear-gradient(to right, var(--grid) 0, var(--grid) 1px, transparent 1px, transparent var(--grid-step)); }
@@ -113,7 +114,7 @@ button.segment:hover, button.segment[aria-expanded='true'] { background: var(--r
   .room-label { height: 54px; font-size: 12px; }
   .room-meta { gap: 4px; }
   .room-alias { font-size: 9px; }
-  .all-day { padding: 1px 4px; font-size: 9px; }
+  .availability-badge { padding: 1px 4px; font-size: 9px; }
   .time-axis, .row-track { margin-left: 10px; margin-right: 10px; }
   .time-axis { height: 60px; }
   .hour { top: 13px; font-size: 9px; }

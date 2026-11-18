@@ -42,7 +42,7 @@ it('requests only the fixed unversioned routes, using the Zurich date and fresh 
   const h = harness();
   const data = await h.run();
   expect(data.rooms.map(room => room.name)).toEqual(ROOMS.map(room => room.name));
-  expect(h.requests).toHaveLength(9);
+  expect(h.requests).toHaveLength(ROOMS.length + 1);
   for (const request of h.requests) {
     const url = new URL(request.url);
     expect(url.origin + url.pathname).toBe('https://ethz.ch/bin/ethz/roominfo');
@@ -87,10 +87,10 @@ it('caches successful rooms for five minutes and preserves their real fetch time
   const first = await h.run();
   h.advance(120_000);
   expect(await h.run()).toEqual(first);
-  expect(h.requests).toHaveLength(9);
+  expect(h.requests).toHaveLength(ROOMS.length + 1);
   h.advance(181_000);
   const refreshed = await h.run();
-  expect(h.requests).toHaveLength(17);
+  expect(h.requests).toHaveLength(2 * ROOMS.length + 1);
   expect(refreshed.coverage).toEqual(first.coverage);
   expect(refreshed.rooms[0].fetchedAt).not.toBe(first.rooms[0].fetchedAt);
 });
@@ -133,12 +133,12 @@ describe('unavailable data', () => {
     const data = await h.run();
     expect(data.rooms[2]).toMatchObject({ status: 'unavailable', fetchedAt: null });
     expect(data.rooms[2]).not.toHaveProperty('segments');
-    expect(data.rooms.filter(room => room.status === 'ok')).toHaveLength(7);
+    expect(data.rooms.filter(room => room.status === 'ok')).toHaveLength(ROOMS.length - 1);
     await h.run();
-    expect(h.requests).toHaveLength(10); // Retry the failed room only on the next explicit load.
+    expect(h.requests).toHaveLength(ROOMS.length + 2); // Retry the failed room only on the next explicit load.
   });
 
-  it('times out a stalled room without losing the other seven', async () => {
+  it('times out a stalled room without losing the other rooms', async () => {
     const h = harness((path, request) => {
       if (path === '/min-max-allocation-date') return Response.json(LIMITS);
       if (path !== '/rooms/HG D 12/allocations') return Response.json([]);
@@ -146,7 +146,7 @@ describe('unavailable data', () => {
     });
     const data = await getToday({ ...h.options, timeoutMs: 5 });
     expect(data.rooms[2].status).toBe('unavailable');
-    expect(data.rooms.filter(room => room.status === 'ok')).toHaveLength(7);
+    expect(data.rooms.filter(room => room.status === 'ok')).toHaveLength(ROOMS.length - 1);
   });
 
   it.each([{}, { minDateLoad: '2026-11-19', maxDateLoad: '2027-02-21' },

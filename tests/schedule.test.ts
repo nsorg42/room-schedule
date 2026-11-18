@@ -8,8 +8,9 @@ describe('fixed rooms', () => {
     expect(ROOMS.map(room => room.name)).toEqual([
       'HG K 30.1', 'HG D 11', 'HG D 12', 'HG E 19',
       'HG E 26.1', 'HG E 26.3', 'HG E 27', 'HG G 1',
+      'HG H 30.1', 'CAB H 56', 'CAB H 57',
     ]);
-    expect(ROOMS[0].label).toBe('HG K 30.1 · Vis Dome');
+    expect(ROOMS[0].label).toBe('Vis Dome');
   });
 });
 

@@ -1,9 +1,9 @@
-import { ROOMS } from '../shared/config.ts';
+import { ROOMS, UPSTREAM_TIMEOUT_MS } from '../shared/config.ts';
 import { normalizeSchedule, parseLimits } from './schedule.ts';
 
 export const ETH_ENDPOINT = 'https://ethz.ch/bin/ethz/roominfo';
 
-export function createEthClient(fetcher: typeof fetch = fetch, timeoutMs = 6000) {
+export function createEthClient(fetcher: typeof fetch = fetch, timeoutMs = UPSTREAM_TIMEOUT_MS) {
   async function json(path: string, date?: string): Promise<unknown> {
     const url = new URL(ETH_ENDPOINT);
     url.search = new URLSearchParams({ path, ...(date ? { from: date, to: date } : {}) }).toString();

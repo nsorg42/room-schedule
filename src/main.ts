@@ -1,5 +1,5 @@
 import './style.css';
-import { END, ROOMS, START, TIME_ZONE } from '../shared/config.ts';
+import { API_TIMEOUT_MS, END, ROOMS, START, TIME_ZONE } from '../shared/config.ts';
 import { formatTime, parseWallTime, zurichTime } from '../shared/time.ts';
 import type { Booking, RoomSchedule, Segment } from '../shared/types.ts';
 import { parseToday } from './api.ts';
@@ -135,11 +135,18 @@ function render(schedules?: RoomSchedule[]) {
     label.append(element('span', 'room-name', name));
     const meta = element('span', 'room-meta');
     if (alias) meta.append(element('span', 'room-alias', `· ${alias}`));
-    if (schedule?.status === 'ok' && schedule.segments.every(segment => segment.state === 'unbooked')) {
-      const badge = element('span', 'all-day', 'All day');
-      badge.title = 'No scheduled bookings from 08:00 to 20:00';
-      meta.append(badge);
-      label.setAttribute('aria-label', `${room.label}, unbooked all day, 08:00–20:00`);
+    if (schedule?.status === 'ok') {
+      const allDay = schedule.segments.every(segment => segment.state === 'unbooked');
+      const candidate = schedule.segments.some(segment =>
+        segment.state === 'unbooked' && segment.start <= 9 * 60 && segment.end >= 17 * 60);
+      if (allDay || candidate) {
+        const text = allDay ? 'All day' : 'Candidate';
+        const hours = allDay ? '08:00–20:00' : '09:00–17:00';
+        const badge = element('span', `availability-badge ${allDay ? 'all-day' : 'candidate'}`, text);
+        badge.title = `No scheduled bookings from ${hours}`;
+        meta.append(badge);
+        label.setAttribute('aria-label', `${room.label}, ${text.toLowerCase()}, unbooked ${hours}`);
+      }
     }
     if (meta.childElementCount) label.append(meta);
     const cell = element('td');
@@ -195,7 +202,7 @@ async function load() {
   try {
     const response = await fetch('/api/today', {
       cache: 'no-store',
-      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(35_000)]),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(API_TIMEOUT_MS)]),
     });
     if (response.status !== 200 || !/^application\/json\b/i.test(response.headers.get('Content-Type') ?? '')) {
       throw new Error('Schedule request failed');
