@@ -1,3 +1,12 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars*
+.env*
+!.env.example
+test-results/
+playwright-report/
+artifacts/
 # Logs
 logs
 *.log
@@ -155,3 +164,7 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+#research
+eth-room-api-research/
+deploy.md
