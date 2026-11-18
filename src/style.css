@@ -2,31 +2,31 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text);
   background: var(--background);
-  color-scheme: light dark;
+  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --background: light-dark(#f5f5f0, #171c19);
-  --text: light-dark(#283d34, #e1e7de);
-  --surface: light-dark(#fff, #202722);
-  --header: light-dark(#fafbf7, #242c26);
-  --green: light-dark(#c9dfce, #487257);
-  --red: light-dark(#dfb0a9, #965d56);
-  --red-hover: light-dark(#d39b92, #ad7067);
-  --muted: light-dark(#6c756d, #a2ada1);
-  --line: light-dark(#e6e8e0, #343d34);
-  --border: light-dark(#dfe4d9, #3a453a);
-  --grid: light-dark(#edf0e8, #2e382f);
-  --neutral: light-dark(#eceee9, #343b35);
-  --now: light-dark(#315e47, #a5cbb1);
-  --now-text: light-dark(#fff, #15251c);
-  --focus: light-dark(#30715a, #a5cbb1);
-  --badge-bg: light-dark(#e7f1e7, #2c4434);
-  --badge-text: light-dark(#346246, #c3dfc6);
-  --badge-border: light-dark(#cddfcf, #45674b);
-  --popover: light-dark(#fffefa, #252d26);
-  --shadow: light-dark(#203c2824, #0006);
-  --booking-time: light-dark(#7e524b, #e3b4a9);
+  --background: #171c19;
+  --text: #e1e7de;
+  --surface: #202722;
+  --header: #242c26;
+  --green: #487257;
+  --red: #965d56;
+  --red-hover: #ad7067;
+  --muted: #a2ada1;
+  --line: #343d34;
+  --border: #3a453a;
+  --grid: #2e382f;
+  --neutral: #343b35;
+  --now: #a5cbb1;
+  --now-text: #15251c;
+  --focus: #a5cbb1;
+  --badge-bg: #2c4434;
+  --badge-text: #c3dfc6;
+  --badge-border: #45674b;
+  --popover: #252d26;
+  --shadow: #0006;
+  --booking-time: #e3b4a9;
   --room-width: 174px;
   --grid-step: calc(100% / 12);
 }
@@ -48,9 +48,6 @@ h1 { margin-top: 13px; font: 400 clamp(36px, 4vw, 48px)/1.15 Georgia, 'Times New
 .icon-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 36px; padding: 7px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
 .icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .icon-button:hover { background: var(--neutral); color: var(--text); }
-.theme-toggle { width: 36px; height: 40px; position: absolute; top: -6px; right: 0; border: 1px solid var(--border); border-radius: 8px; }
-
-.theme-toggle svg { width: 20px; height: 20px; }
 
 .table-meta { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-bottom: 14px; }
 .legend { display: flex; gap: 18px; color: var(--muted); font-size: 11px; }
@@ -132,6 +129,3 @@ button.segment:hover, button.segment[aria-expanded='true'] { background: var(--r
   .now-label { font-size: 9px; }
   .schedule-footer { padding-top: 12px; font-size: 10px; }
 }
-
-:root[data-theme='light'] { color-scheme: light; }
-:root[data-theme='dark'] { color-scheme: dark; }

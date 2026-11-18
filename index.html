@@ -3,12 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f5f5f0" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#171c19" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#171c19" />
     <meta name="description" content="Room schedules at ETH Zürich. See scheduled bookings and unbooked time at a glance." />
     <title>Study Rooms · ETH Zürich</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <script src="/theme.js"></script>
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
@@ -23,17 +21,13 @@
             <button id="next-day" class="icon-button" type="button" aria-label="Next day" title="Next day"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button>
           </nav>
         </div>
-        <button id="theme-toggle" class="icon-button theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme">
-          <svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true" hidden><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></svg>
-          <svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z" /></svg>
-        </button>
       </header>
 
       <section aria-label="Room schedules">
         <div class="table-meta">
           <div class="legend" aria-label="Timetable legend">
-            <span><i class="swatch unbooked" aria-hidden="true"></i>Unbooked</span>
-            <span><i class="swatch booked" aria-hidden="true"></i>Booked / closed</span>
+            <span><i class="swatch unbooked" aria-hidden="true"></i>Free</span>
+            <span><i class="swatch booked" aria-hidden="true"></i>Booked</span>
           </div>
         </div>
         <div id="board-scroll" class="board-scroll" tabindex="0" role="region" aria-label="Room timetable">

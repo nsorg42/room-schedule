@@ -135,7 +135,7 @@ describe('unavailable data', () => {
     expect(data.rooms[2]).not.toHaveProperty('segments');
     expect(data.rooms.filter(room => room.status === 'ok')).toHaveLength(ROOMS.length - 1);
     await h.run();
-    expect(h.requests).toHaveLength(ROOMS.length + 2); // Retry the failed room only on the next explicit load.
+    expect(h.requests).toHaveLength(ROOMS.length + 4); // Only the failed room is retried, once per load.
   });
 
   it('times out a stalled room without losing the other rooms', async () => {
@@ -155,7 +155,7 @@ describe('unavailable data', () => {
     const h = harness(() => Response.json(limits));
     const data = await h.run();
     expect(data.rooms.every(room => room.status === 'unavailable')).toBe(true);
-    expect(h.requests).toHaveLength(1);
+    expect(h.requests).toHaveLength('minDateLoad' in limits ? 1 : 2);
   });
 
   it('does not serve yesterday from a still-warm cache after Zurich midnight', async () => {

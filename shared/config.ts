@@ -17,5 +17,8 @@ export const START = 8 * 60;
 export const END = 20 * 60;
 
 export const UPSTREAM_TIMEOUT_MS = 6000;
-// One coverage request, then two rooms at a time, with a response margin.
-export const API_TIMEOUT_MS = (1 + Math.ceil(ROOMS.length / 2)) * UPSTREAM_TIMEOUT_MS + 5000;
+export const UPSTREAM_RETRY_DELAY_MS = 1000;
+export const MAX_RETRY_DELAY_MS = 5000;
+// Coverage, then two rooms at a time; allow one retry each and a response margin.
+export const API_TIMEOUT_MS = (1 + Math.ceil(ROOMS.length / 2)) *
+  (2 * UPSTREAM_TIMEOUT_MS + MAX_RETRY_DELAY_MS) + 5000;

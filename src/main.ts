@@ -15,34 +15,6 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', 
   return node;
 }
 
-const themeToggle = find<HTMLButtonElement>('theme-toggle');
-const systemTheme = matchMedia('(prefers-color-scheme: dark)');
-
-function updateTheme() {
-  const theme = document.documentElement.dataset.theme ?? 'system';
-  const dark = theme === 'dark' || (theme === 'system' && systemTheme.matches);
-  const label = `Switch to ${dark ? 'light' : 'dark'} theme`;
-  themeToggle.setAttribute('aria-label', label);
-  themeToggle.title = label;
-  themeToggle.querySelector('.theme-sun')!.toggleAttribute('hidden', !dark);
-  themeToggle.querySelector('.theme-moon')!.toggleAttribute('hidden', dark);
-  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach(meta => {
-    meta.content = dark ? '#171c19' : '#f5f5f0';
-  });
-}
-
-themeToggle.addEventListener('click', () => {
-  const dark = document.documentElement.dataset.theme === 'dark' ||
-    (!document.documentElement.dataset.theme && systemTheme.matches);
-  const theme = dark ? 'light' : 'dark';
-  document.documentElement.dataset.theme = theme;
-  try { localStorage.setItem('theme', theme); }
-  catch { /* The theme still works when storage is unavailable. */ }
-  updateTheme();
-});
-systemTheme.addEventListener('change', updateTheme);
-updateTheme();
-
 const table = find<HTMLTableElement>('timetable');
 const rows = find<HTMLTableSectionElement>('room-rows');
 const axis = find<HTMLDivElement>('time-axis');
@@ -58,8 +30,8 @@ const updatedFormat = new Intl.DateTimeFormat('en-GB', {
 
 let displayedDate = '';
 let currentDate = zurichTime().date;
-let requestDate = '';
-let pending: AbortController | undefined;
+let pending = false;
+let navigationTimer: ReturnType<typeof setTimeout> | undefined;
 let activeButton: HTMLButtonElement | undefined;
 
 function nowLine() {
@@ -210,7 +182,7 @@ function updateClock() {
   if (date !== currentDate) {
     const followingToday = displayedDate === currentDate;
     currentDate = date;
-    if (followingToday) void load(date);
+    if (followingToday) load(date);
   }
   const visible = displayedDate === date && minutes >= START && minutes < END;
   table.style.setProperty('--now-position', `${(minutes - START) / (END - START) * 100}%`);
@@ -219,29 +191,30 @@ function updateClock() {
   nowLabel.textContent = formatTime(minutes);
 }
 
-async function load(date = displayedDate) {
-  if (pending && requestDate === date) return;
-  pending?.abort();
-  const controller = new AbortController();
-  pending = controller;
-  requestDate = date;
+function load(date = displayedDate, delay = 0) {
+  clearTimeout(navigationTimer);
   setDate(date);
   render();
   updated.textContent = 'Not updated yet';
   status.textContent = 'Loading schedules…';
   updated.removeAttribute('title');
   table.setAttribute('aria-busy', 'true');
+  if (!pending) navigationTimer = setTimeout(() => { void fetchSchedules(date); }, delay);
+}
+
+async function fetchSchedules(date: string) {
+  pending = true;
   try {
     const url = date === zurichTime().date ? '/api/today' : `/api/today?date=${date}`;
     const response = await fetch(url, {
       cache: 'no-store',
-      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(API_TIMEOUT_MS)]),
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
     if (response.status !== 200 || !/^application\/json\b/i.test(response.headers.get('Content-Type') ?? '')) {
       throw new Error('Schedule request failed');
     }
     const data = parseToday(await response.json(), date);
-    if (controller.signal.aborted || date !== displayedDate) return;
+    if (date !== displayedDate) return;
     render(data.rooms);
     const successful = data.rooms.filter(room => room.status === 'ok');
     const failures = ROOMS.length - successful.length;
@@ -258,12 +231,13 @@ async function load(date = displayedDate) {
       updated.title = `Oldest successful room fetch: ${oldest}. Times shown in Zurich.`;
     }
   } catch {
-    if (controller.signal.aborted) return;
+    if (date !== displayedDate) return;
     render(ROOMS.map(room => ({ ...room, status: 'unavailable', fetchedAt: null, reason: 'upstream' })));
     status.textContent = 'Schedules unavailable. Please reload later.';
   } finally {
-    if (pending === controller) {
-      pending = undefined;
+    pending = false;
+    if (date !== displayedDate) load(displayedDate, 250);
+    else {
       table.setAttribute('aria-busy', 'false');
       updateClock();
     }
@@ -273,7 +247,7 @@ async function load(date = displayedDate) {
 function changeDay(offset: number) {
   const date = new Date(`${displayedDate}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + offset);
-  void load(date.toISOString().slice(0, 10));
+  load(date.toISOString().slice(0, 10), 250);
 }
 find('previous-day').addEventListener('click', () => changeDay(-1));
 find('next-day').addEventListener('click', () => changeDay(1));
@@ -282,5 +256,5 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) upda
 window.addEventListener('focus', updateClock);
 window.addEventListener('pageshow', updateClock);
 setDate(zurichTime().date);
-void load();
+load();
 setInterval(updateClock, 60_000);
