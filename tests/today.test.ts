@@ -182,3 +182,28 @@ it('exposes a GET endpoint, rejects proxy routes, and never forwards visitor hea
   expect(response.headers.get('Cache-Control')).toBe('no-store');
   expect(h.requests.every(request => !request.headers.has('Authorization') && !request.headers.has('Origin') && !request.headers.has('Cookie'))).toBe(true);
 });
+
+
+it('loads a requested date with a separate cache entry and respects publication limits', async () => {
+  const h = harness();
+  await h.run();
+  const future = await getToday({ ...h.options, date: '2026-11-19' });
+  expect(future.date).toBe('2026-11-19');
+  expect(future.rooms.every(room => room.status === 'ok')).toBe(true);
+  expect(h.requests).toHaveLength(2 * ROOMS.length + 1);
+  expect(new URL(h.requests.at(-1)!.url).searchParams.get('from')).toBe('2026-11-19');
+  const unpublished = await getToday({ ...h.options, date: '2028-01-01' });
+  expect(unpublished.rooms.every(room => room.status === 'unavailable')).toBe(true);
+  expect(h.requests).toHaveLength(2 * ROOMS.length + 1);
+});
+
+it('rejects invalid dates before requesting ETH schedules', async () => {
+  const h = harness();
+  vi.stubGlobal('caches', { default: h.options.cache });
+  const assets = { fetch: vi.fn(async () => new Response('asset')) };
+  for (const date of ['2026-02-30', 'tomorrow', '']) {
+    const response = await worker.fetch(new Request(`https://rooms.example/api/today?date=${date}`),
+      { ASSETS: assets }, { waitUntil() {} });
+    expect(response.status).toBe(400);
+  }
+});

@@ -8,6 +8,7 @@ export const LIMITS_TTL = 6 * 60 * 60;
 
 export interface TodayOptions {
   origin: string;
+  date?: string;
   cache: Pick<Cache, 'match' | 'put'>;
   waitUntil: (task: Promise<unknown>) => void;
   fetcher?: typeof fetch;
@@ -18,7 +19,7 @@ export interface TodayOptions {
 export async function getToday(options: TodayOptions): Promise<TodayResponse> {
   const { origin, cache, waitUntil, fetcher, timeoutMs } = options;
   const now = options.now ?? (() => new Date());
-  const date = zurichTime(now()).date;
+  const date = options.date ?? zurichTime(now()).date;
   const eth = createEthClient(fetcher, timeoutMs);
 
   async function cached<T>(path: string, ttl: number, load: () => Promise<T>) {

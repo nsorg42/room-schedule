@@ -193,6 +193,7 @@ test('marks 09:00–17:00 candidates, respects boundaries, and keeps All day pre
 });
 
 test('follows the device color scheme, including popovers and unavailable rows', async ({ page }, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   const data = todayFixture();
   data.rooms[2] = { ...ROOMS[2], status: 'unavailable', fetchedAt: null, reason: 'upstream' };
   await page.route('**/api/today', route => route.fulfill({ json: data }));
@@ -203,7 +204,7 @@ test('follows the device color scheme, including popovers and unavailable rows',
     .map(selector => getComputedStyle(document.querySelector(selector)!).backgroundColor));
   const light = await colors();
   await page.emulateMedia({ colorScheme: 'dark' });
-  expect(await page.locator('html').evaluate(el => getComputedStyle(el).colorScheme)).toBe('dark');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(23, 28, 25)');
   const dark = await colors();
   dark.forEach((color, index) => expect(color).not.toBe(light[index]));
   await page.screenshot({ path: `artifacts/${info.project.name}-dark.png`, fullPage: true });
@@ -240,4 +241,49 @@ test('fetches the new date when the browser resumes after an overnight suspensio
   await expect(page.locator('#today-date')).toHaveText('Thursday, 19 November 2026');
   await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
   expect(requests).toBe(2);
+});
+
+
+test('browses dates, hides now for other days, and explains unpublished schedules', async ({ page }) => {
+  await page.route('**/api/today*', route => {
+    const date = new URL(route.request().url()).searchParams.get('date') ?? DATE;
+    const data = todayFixture(date);
+    if (date === '2026-11-20' && data.coverage.status === 'ok') data.coverage.maxDate = '2026-11-19';
+    return route.fulfill({ json: data });
+  });
+  await page.goto('/');
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
+  await page.getByRole('button', { name: 'Next day', exact: true }).click();
+  await expect(page.locator('#today-date')).toHaveText('Thursday, 19 November 2026');
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
+  await expect(page.locator('.now-line:visible')).toHaveCount(0);
+  await page.clock.fastForward(60_000);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.locator('#today-date')).toHaveText('Thursday, 19 November 2026');
+  await page.getByRole('button', { name: 'Next day', exact: true }).click();
+  await expect(page.locator('#load-status')).toHaveText('ETH has not published schedules for this date.');
+  await expect(page.locator('tr[data-state="unavailable"]')).toHaveCount(ROOMS.length);
+  await page.getByRole('button', { name: 'Previous day', exact: true }).click();
+  await expect(page.locator('tr[data-state="ok"]')).toHaveCount(ROOMS.length);
+  await page.getByRole('button', { name: 'Previous day', exact: true }).click();
+  await expect(page.locator('#today-date')).toHaveText('Wednesday, 18 November 2026');
+  await expect(page.locator('.now-label')).toBeVisible();
+});
+
+test('defaults to the system theme and remembers manual light/dark switching', async ({ page }) => {
+  await page.route('**/api/today', route => route.fulfill({ json: todayFixture() }));
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/');
+  await expect(page.locator('.hours')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Switch to dark theme', exact: true })).toBeVisible();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(23, 28, 25)');
+  await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click();
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light');
+  await page.reload();
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light');
+  await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click();
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
 });

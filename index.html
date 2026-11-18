@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f5f5f0" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#171c19" media="(prefers-color-scheme: dark)" />
-    <meta name="description" content="Today's room schedules at ETH Zürich. See scheduled bookings and unbooked time at a glance." />
+    <meta name="description" content="Room schedules at ETH Zürich. See scheduled bookings and unbooked time at a glance." />
     <title>Study Rooms · ETH Zürich</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script src="/theme.js"></script>
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
@@ -16,13 +17,20 @@
         <div>
           <p class="eyebrow">ETH Zürich</p>
           <h1>Study Rooms</h1>
-          <p id="today-date" class="date"></p>
+          <nav class="date-nav" aria-label="Schedule date">
+            <button id="previous-day" class="icon-button" type="button" aria-label="Previous day" title="Previous day"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button>
+            <p id="today-date" class="date" aria-live="polite"></p>
+            <button id="next-day" class="icon-button" type="button" aria-label="Next day" title="Next day"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button>
+          </nav>
         </div>
+        <button id="theme-toggle" class="icon-button theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme">
+          <svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true" hidden><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></svg>
+          <svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z" /></svg>
+        </button>
       </header>
 
-      <section aria-label="Today's room schedules">
+      <section aria-label="Room schedules">
         <div class="table-meta">
-          <p class="hours">08:00–20:00</p>
           <div class="legend" aria-label="Timetable legend">
             <span><i class="swatch unbooked" aria-hidden="true"></i>Unbooked</span>
             <span><i class="swatch booked" aria-hidden="true"></i>Booked / closed</span>
@@ -30,7 +38,7 @@
         </div>
         <div id="board-scroll" class="board-scroll" tabindex="0" role="region" aria-label="Room timetable">
           <table id="timetable">
-            <caption class="sr-only">Today's room schedules, from 08:00 to 20:00, Europe/Zurich. Activate a booked segment for details.</caption>
+            <caption class="sr-only">Room schedules, from 08:00 to 20:00, Europe/Zurich. Activate a booked segment for details.</caption>
             <colgroup><col class="room-column" /><col /></colgroup>
             <thead><tr><th class="corner" scope="col">Room</th><th scope="col"><div id="time-axis" class="time-axis"></div><span class="sr-only">Schedule</span></th></tr></thead>
             <tbody id="room-rows"></tbody>
@@ -46,6 +54,6 @@
       <div class="popover-heading"><p id="popover-room"></p><button id="close-popover" type="button" aria-label="Close booking details">×</button></div>
       <div id="popover-content"></div>
     </div>
-    <noscript><p class="noscript">JavaScript is needed to load today’s schedules.</p></noscript>
+    <noscript><p class="noscript">JavaScript is needed to load room schedules.</p></noscript>
   </body>
 </html>

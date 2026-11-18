@@ -1,3 +1,4 @@
+import { isDate } from '../shared/time.ts';
 import { getToday } from './today.ts';
 
 interface Env {
@@ -11,7 +12,12 @@ export default {
       if (request.method !== 'GET') {
         return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET' } });
       }
+      const date = url.searchParams.get('date');
+      if (date !== null && !isDate(date)) {
+        return Response.json({ error: 'Invalid date. Use YYYY-MM-DD.' }, { status: 400 });
+      }
       const data = await getToday({
+        date: date ?? undefined,
         origin: url.origin,
         cache: (caches as CacheStorage & { default: Cache }).default,
         waitUntil: task => ctx.waitUntil(task),

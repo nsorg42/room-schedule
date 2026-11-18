@@ -15,6 +15,34 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', 
   return node;
 }
 
+const themeToggle = find<HTMLButtonElement>('theme-toggle');
+const systemTheme = matchMedia('(prefers-color-scheme: dark)');
+
+function updateTheme() {
+  const theme = document.documentElement.dataset.theme ?? 'system';
+  const dark = theme === 'dark' || (theme === 'system' && systemTheme.matches);
+  const label = `Switch to ${dark ? 'light' : 'dark'} theme`;
+  themeToggle.setAttribute('aria-label', label);
+  themeToggle.title = label;
+  themeToggle.querySelector('.theme-sun')!.toggleAttribute('hidden', !dark);
+  themeToggle.querySelector('.theme-moon')!.toggleAttribute('hidden', dark);
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach(meta => {
+    meta.content = dark ? '#171c19' : '#f5f5f0';
+  });
+}
+
+themeToggle.addEventListener('click', () => {
+  const dark = document.documentElement.dataset.theme === 'dark' ||
+    (!document.documentElement.dataset.theme && systemTheme.matches);
+  const theme = dark ? 'light' : 'dark';
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem('theme', theme); }
+  catch { /* The theme still works when storage is unavailable. */ }
+  updateTheme();
+});
+systemTheme.addEventListener('change', updateTheme);
+updateTheme();
+
 const table = find<HTMLTableElement>('timetable');
 const rows = find<HTMLTableSectionElement>('room-rows');
 const axis = find<HTMLDivElement>('time-axis');
@@ -29,6 +57,7 @@ const updatedFormat = new Intl.DateTimeFormat('en-GB', {
 });
 
 let displayedDate = '';
+let currentDate = zurichTime().date;
 let requestDate = '';
 let pending: AbortController | undefined;
 let activeButton: HTMLButtonElement | undefined;
@@ -171,24 +200,26 @@ function render(schedules?: RoomSchedule[]) {
 function setDate(date: string) {
   displayedDate = date;
   const [year, month, day] = date.split('-').map(Number);
-  find('today-date').textContent = dateFormat.format(new Date(Date.UTC(year, month - 1, day)));
+  const label = dateFormat.format(new Date(Date.UTC(year, month - 1, day)));
+  find('today-date').textContent = label;
+  table.caption!.textContent = `Room schedules for ${label}, from 08:00 to 20:00, Europe/Zurich. Activate a booked segment for details.`;
 }
 
 function updateClock() {
   const { date, minutes } = zurichTime();
-  const visible = minutes >= START && minutes < END;
+  if (date !== currentDate) {
+    const followingToday = displayedDate === currentDate;
+    currentDate = date;
+    if (followingToday) void load(date);
+  }
+  const visible = displayedDate === date && minutes >= START && minutes < END;
   table.style.setProperty('--now-position', `${(minutes - START) / (END - START) * 100}%`);
   document.querySelectorAll<HTMLElement>('.now-line').forEach(line => { line.hidden = !visible; });
   nowLabel.hidden = !visible;
   nowLabel.textContent = formatTime(minutes);
-  if (date !== displayedDate) {
-    setDate(date);
-    void load();
-  }
 }
 
-async function load() {
-  const date = zurichTime().date;
+async function load(date = displayedDate) {
   if (pending && requestDate === date) return;
   pending?.abort();
   const controller = new AbortController();
@@ -197,10 +228,12 @@ async function load() {
   setDate(date);
   render();
   updated.textContent = 'Not updated yet';
-  status.textContent = 'Loading today’s schedules…';
+  status.textContent = 'Loading schedules…';
+  updated.removeAttribute('title');
   table.setAttribute('aria-busy', 'true');
   try {
-    const response = await fetch('/api/today', {
+    const url = date === zurichTime().date ? '/api/today' : `/api/today?date=${date}`;
+    const response = await fetch(url, {
       cache: 'no-store',
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(API_TIMEOUT_MS)]),
     });
@@ -208,11 +241,15 @@ async function load() {
       throw new Error('Schedule request failed');
     }
     const data = parseToday(await response.json(), date);
-    if (controller.signal.aborted || date !== zurichTime().date) return;
+    if (controller.signal.aborted || date !== displayedDate) return;
     render(data.rooms);
     const successful = data.rooms.filter(room => room.status === 'ok');
     const failures = ROOMS.length - successful.length;
-    status.textContent = failures === 0 ? '' : failures === ROOMS.length
+    const outsideCoverage = data.coverage.status === 'ok' &&
+      (date < data.coverage.minDate || date > data.coverage.maxDate);
+    status.textContent = outsideCoverage
+      ? 'ETH has not published schedules for this date.'
+      : failures === 0 ? '' : failures === ROOMS.length
       ? 'Schedules unavailable. Please reload later.'
       : `${failures} ${failures === 1 ? 'schedule' : 'schedules'} unavailable.`;
     const oldest = successful.map(room => room.fetchedAt).sort()[0];
@@ -232,6 +269,14 @@ async function load() {
     }
   }
 }
+
+function changeDay(offset: number) {
+  const date = new Date(`${displayedDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  void load(date.toISOString().slice(0, 10));
+}
+find('previous-day').addEventListener('click', () => changeDay(-1));
+find('next-day').addEventListener('click', () => changeDay(1));
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden) updateClock(); });
 window.addEventListener('focus', updateClock);
